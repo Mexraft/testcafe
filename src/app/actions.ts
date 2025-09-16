@@ -41,14 +41,12 @@ export async function generateTestsAction(
   error?: string;
 }> {
   try {
-    const { testCases: testCasesString } = await generateTestCasesAgentic({
+    // The AI model now returns an object with a testCases property.
+    const { testCases: parsedTestCases } = await generateTestCasesAgentic({
       confirmedUnderstanding,
     });
-    
-    // The AI model is now configured to return a JSON array of objects with id and description.
-    const parsedTestCases: {id: string, description: string}[] = JSON.parse(testCasesString);
 
-    if (parsedTestCases.length === 0) {
+    if (!parsedTestCases || parsedTestCases.length === 0) {
       return { error: 'No test cases were generated.' };
     }
 
@@ -60,7 +58,7 @@ export async function generateTestsAction(
     });
     
     const finalTestCases: TestCase[] = parsedTestCases.map((tc, index) => ({
-      id: `TC-${String(index + 1).padStart(3, '0')}`,
+      id: tc.id,
       description: tc.description,
       standards: testCaseToStandardsMap[tc.description] || [],
     }));

@@ -22,11 +22,16 @@ export type GenerateTestCasesInput = z.infer<
   typeof GenerateTestCasesInputSchema
 >;
 
+const TestCaseSchema = z.object({
+  id: z.string().describe('A unique identifier for the test case, e.g., "TC1".'),
+  description: z.string().describe('A detailed description of the test case.'),
+});
+
 const GenerateTestCasesOutputSchema = z.object({
   testCases: z
-    .string()
+    .array(TestCaseSchema)
     .describe(
-      'A JSON array of test case objects. Each object should have an "id" and a "description" property.'
+      'An array of test case objects.'
     ),
 });
 export type GenerateTestCasesOutput = z.infer<
@@ -48,12 +53,14 @@ const generateTestCasesPrompt = ai.definePrompt({
 Confirmed Understanding: {{{confirmedUnderstanding}}}
 
 Generate test cases that cover various scenarios and edge cases to ensure full test coverage.
-The output should be a valid JSON array of objects, where each object has an "id" (e.g., "TC1") and a "description" of the test case. Do not include anything else in the output.
+The output must be a valid JSON object with a "testCases" key, which contains an array of objects. Each object in the array should have an "id" and a "description" property. Do not include anything else in the output.
 Example format:
-[
-  {"id": "TC1", "description": "Verify user can log in with valid credentials."},
-  {"id": "TC2", "description": "Verify user cannot log in with invalid credentials."}
-]
+{
+  "testCases": [
+    {"id": "TC1", "description": "Verify user can log in with valid credentials."},
+    {"id": "TC2", "description": "Verify user cannot log in with invalid credentials."}
+  ]
+}
 `,
 });
 

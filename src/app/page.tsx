@@ -36,6 +36,7 @@ export default function Home() {
 
   const handleGenerateUnderstanding = async (requirements: string) => {
     setLoadingMessage('Analyzing requirements...');
+    setAppState('generating');
     try {
       const result = await generateUnderstandingAction(requirements);
       if (result.error) {
@@ -89,11 +90,11 @@ export default function Home() {
   };
 
   const renderContent = () => {
-    if (loadingMessage) {
+    if (appState === 'generating' || loadingMessage) {
       return (
         <div className="flex flex-col items-center justify-center gap-4 text-center h-96">
           <Spinner />
-          <p className="text-lg text-muted-foreground animate-pulse">{loadingMessage}</p>
+          <p className="text-lg text-muted-foreground animate-pulse">{loadingMessage || 'Processing...'}</p>
         </div>
       );
     }
@@ -120,8 +121,6 @@ export default function Home() {
             onBack={handleBackToUnderstanding}
           />
         );
-      case 'generating':
-        return null; // This state is handled by the loadingMessage check
       default:
         return <RequirementInputForm onSubmit={handleGenerateUnderstanding} />;
     }

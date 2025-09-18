@@ -1,16 +1,38 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Header } from '@/components/app/Header';
-import { RequirementInputForm } from '@/components/app/RequirementInputForm';
-import { UnderstandingView } from '@/components/app/UnderstandingView';
-import { TestCasesView } from '@/components/app/TestCasesView';
-import { Spinner } from '@/components/app/Spinner';
-import { generateUnderstandingAction, generateTestsAction } from '@/app/actions';
-import type { FlowchartData, TestCase } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { Header } from "@/components/app/Header";
+import { RequirementInputForm } from "@/components/app/RequirementInputForm";
+import { UnderstandingView } from "@/components/app/UnderstandingView";
+import { TestCasesView } from "@/components/app/TestCasesView";
+import { Spinner } from "@/components/app/Spinner";
+import {
+  generateUnderstandingAction,
+  generateTestsAction,
+} from "@/app/actions";
+import type { FlowchartData, TestCase } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  ArrowRight,
+  TestTube2,
+  Workflow,
+  FileText,
+  CheckCircle,
+} from "lucide-react";
+import Link from "next/link";
+import HealthcareFlowchart, {
+  healthcareFlowchartDummyData,
+} from "@/components/flow/HealthcareFlowchart";
 
-type AppState = 'input' | 'understanding' | 'generating' | 'results';
+type AppState = "home" | "input" | "understanding" | "generating" | "results";
 type UnderstandingData = {
   originalRequirements: string;
   summary: string;
@@ -18,25 +40,26 @@ type UnderstandingData = {
 };
 
 export default function Home() {
-  const [appState, setAppState] = useState<AppState>('input');
-  const [understandingData, setUnderstandingData] = useState<UnderstandingData | null>(null);
+  const [appState, setAppState] = useState<AppState>("home");
+  const [understandingData, setUnderstandingData] =
+    useState<UnderstandingData | null>(null);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const { toast } = useToast();
 
   const handleFatalError = (message: string) => {
     toast({
-      variant: 'destructive',
-      title: 'An Error Occurred',
+      variant: "destructive",
+      title: "An Error Occurred",
       description: message,
     });
     setLoadingMessage(null);
-    setAppState('input');
+    setAppState("input");
   };
 
   const handleGenerateUnderstanding = async (requirements: string) => {
-    setLoadingMessage('Analyzing requirements...');
-    setAppState('generating');
+    setLoadingMessage("Analyzing requirements...");
+    setAppState("generating");
     try {
       const result = await generateUnderstandingAction(requirements);
       if (result.error) {
@@ -47,9 +70,9 @@ export default function Home() {
         summary: result.summary!,
         flowchartData: result.flowchartData!,
       });
-      setAppState('understanding');
+      setAppState("understanding");
     } catch (e: any) {
-      handleFatalError(e.message || 'Failed to analyze requirements.');
+      handleFatalError(e.message || "Failed to analyze requirements.");
     } finally {
       setLoadingMessage(null);
     }
@@ -57,11 +80,11 @@ export default function Home() {
 
   const handleGenerateTests = async (summary: string) => {
     if (!understandingData?.originalRequirements) {
-      handleFatalError('Original requirements not found. Please start over.');
+      handleFatalError("Original requirements not found. Please start over.");
       return;
     }
-    setAppState('generating');
-    setLoadingMessage('Generating test cases... This may take a moment.');
+    setAppState("generating");
+    setLoadingMessage("Generating test cases... This may take a moment.");
     try {
       const result = await generateTestsAction(
         summary,
@@ -71,38 +94,157 @@ export default function Home() {
         throw new Error(result.error);
       }
       setTestCases(result.testCases!);
-      setAppState('results');
+      setAppState("results");
     } catch (e: any) {
-      handleFatalError(e.message || 'Failed to generate test cases.');
+      handleFatalError(e.message || "Failed to generate test cases.");
     } finally {
       setLoadingMessage(null);
     }
   };
 
   const handleStartOver = () => {
-    setAppState('input');
+    setAppState("input");
     setUnderstandingData(null);
     setTestCases([]);
   };
 
   const handleBackToUnderstanding = () => {
-    setAppState('understanding');
+    setAppState("understanding");
   };
 
+  const handleBackToHome = () => {
+    setAppState("home");
+    setUnderstandingData(null);
+    setTestCases([]);
+  };
+
+  const renderHomeContent = () => (
+    <div className="space-y-16">
+      {/* Hero Section */}
+      <div className="text-center space-y-8 py-12">
+        <div className="space-y-4">
+          <h1 className="text-5xl font-bold tracking-tight bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+            AutoTestify
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Transform your requirements into comprehensive test cases with
+            AI-powered analysis and interactive workflow visualization
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button
+            size="lg"
+            onClick={() => setAppState("input")}
+            className="text-lg px-8 py-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            Start Testing
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            asChild
+            className="text-lg px-8 py-6 rounded-xl border-2 hover:bg-primary/5 transition-all duration-300"
+          >
+            <Link href="/healthcare-flow">
+              View Demo Flow
+              <Workflow className="ml-2 h-5 w-5" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* Interactive Healthcare Flowchart */}
+      <div className="space-y-6">
+        <div className="text-center space-y-2">
+          <h2 className="text-3xl font-bold">Interactive Healthcare System</h2>
+          <p className="text-muted-foreground">
+            Explore our sample healthcare workflow - drag nodes, zoom, and
+            interact with the system
+          </p>
+        </div>
+        <Card className="shadow-2xl border-0 bg-gradient-to-br from-card to-card/50">
+          <CardContent className="p-0">
+            <div className="h-[600px] rounded-lg overflow-hidden">
+              <HealthcareFlowchart data={healthcareFlowchartDummyData} />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Features Grid */}
+      <div className="grid md:grid-cols-3 gap-8">
+        <Card className="group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/20 dark:to-indigo-950/20">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <TestTube2 className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+            </div>
+            <CardTitle className="text-xl">AI-Powered Analysis</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <CardDescription className="text-base leading-relaxed">
+              Advanced AI algorithms analyze your requirements and generate
+              comprehensive test scenarios automatically
+            </CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card className="group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <Workflow className="h-6 w-6 text-green-600 dark:text-green-400" />
+            </div>
+            <CardTitle className="text-xl">Interactive Flowcharts</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <CardDescription className="text-base leading-relaxed">
+              Visualize complex workflows with interactive diagrams that help
+              you understand system behavior
+            </CardDescription>
+          </CardContent>
+        </Card>
+
+        <Card className="group hover:shadow-xl transition-all duration-300 border-0 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950/20 dark:to-violet-950/20">
+          <CardHeader className="text-center pb-4">
+            <div className="mx-auto w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+              <CheckCircle className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+            </div>
+            <CardTitle className="text-xl">Comprehensive Testing</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center">
+            <CardDescription className="text-base leading-relaxed">
+              Generate detailed test cases covering edge cases, user scenarios,
+              and system validations
+            </CardDescription>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
   const renderContent = () => {
-    if (appState === 'generating' || loadingMessage) {
+    if (appState === "generating" || loadingMessage) {
       return (
         <div className="flex flex-col items-center justify-center gap-4 text-center h-96">
           <Spinner />
-          <p className="text-lg text-muted-foreground animate-pulse">{loadingMessage || 'Processing...'}</p>
+          <p className="text-lg text-muted-foreground animate-pulse">
+            {loadingMessage || "Processing..."}
+          </p>
         </div>
       );
     }
 
     switch (appState) {
-      case 'input':
-        return <RequirementInputForm onSubmit={handleGenerateUnderstanding} />;
-      case 'understanding':
+      case "home":
+        return renderHomeContent();
+      case "input":
+        return (
+          <RequirementInputForm
+            onSubmit={handleGenerateUnderstanding}
+            onBack={handleBackToHome}
+          />
+        );
+      case "understanding":
         return (
           understandingData && (
             <UnderstandingView
@@ -113,7 +255,7 @@ export default function Home() {
             />
           )
         );
-      case 'results':
+      case "results":
         return (
           <TestCasesView
             testCases={testCases}
@@ -122,18 +264,27 @@ export default function Home() {
           />
         );
       default:
-        return <RequirementInputForm onSubmit={handleGenerateUnderstanding} />;
+        return renderHomeContent();
     }
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <Header />
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="transition-opacity duration-500 ease-in-out">{renderContent()}</div>
+        <div className="transition-all duration-500 ease-in-out">
+          {renderContent()}
+        </div>
       </main>
-      <footer className="text-center py-4 text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} AutoTestify. All rights reserved.</p>
+      <footer className="border-t bg-card/50 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center text-sm text-muted-foreground">
+            <p>
+              &copy; {new Date().getFullYear()} AutoTestify. Empowering quality
+              through intelligent testing.
+            </p>
+          </div>
+        </div>
       </footer>
     </div>
   );

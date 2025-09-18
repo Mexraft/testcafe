@@ -25,6 +25,7 @@ import 'reactflow/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Maximize2, Minimize2 } from 'lucide-react';
+import dagre from 'dagre';
 
 // Types
 type NodeData = {
@@ -34,6 +35,36 @@ type NodeData = {
 
 type FlowNode = Node<NodeData>;
 type FlowEdge = Edge;
+
+// Dagre auto-layout helper
+const nodeWidth = 256; // matches w-64
+const nodeHeight = 120; // approx height of the card
+
+function getLayoutedElements(nodes: Node[], edges: Edge[], direction: 'TB' | 'LR' = 'TB') {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  dagreGraph.setGraph({ rankdir: direction });
+
+  nodes.forEach((n) => {
+    dagreGraph.setNode(n.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((e) => {
+    dagreGraph.setEdge(e.source, e.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodes = nodes.map((n) => {
+    const { x, y } = dagreGraph.node(n.id);
+    return {
+      ...n,
+      position: { x: x - nodeWidth / 2, y: y - nodeHeight / 2 },
+    };
+  });
+
+  return { nodes: layoutedNodes, edges };
+}
 
 const nodeTypes: NodeTypes = {
   card: ({ data }: { data: NodeData }) => (
@@ -117,44 +148,12 @@ const FlowchartContent = () => {
       ]
     };
 
-    // Position nodes in a hierarchical layout
-    const nodePositions: Record<string, { x: number; y: number }> = {
-      // Level 0
-      'start': { x: 0, y: 0 },
-      // Level 1
-      'user_management': { x: 0, y: 150 },
-      // Level 2
-      'registration': { x: -300, y: 300 },
-      'profile_management': { x: 0, y: 300 },
-      'medical_records': { x: 300, y: 300 },
-      // Level 3
-      'appointment_management': { x: -100, y: 450 },
-      'doctor_availability': { x: 100, y: 450 },
-      'patient_upload_records': { x: 200, y: 450 },
-      'doctor_view_records': { x: 400, y: 450 },
-      // Level 4
-      'book_appointment': { x: -300, y: 600 },
-      'reschedule_appointment': { x: -100, y: 600 },
-      'cancel_appointment': { x: 100, y: 600 },
-      // Level 5
-      'doctor_decision': { x: 0, y: 750 },
-      // Level 6
-      'notification_system': { x: 0, y: 900 },
-      'online_payment_module': { x: 300, y: 900 },
-      // Level 7
-      'email_notification': { x: -200, y: 1050 },
-      'sms_notification': { x: 0, y: 1050 },
-      'app_notification': { x: 200, y: 1050 },
-      'process_payment': { x: 400, y: 1050 },
-      // Level 8
-      'generate_invoice': { x: 400, y: 1200 },
-    };
-
     const nodes = data.nodes.map(node => ({
       id: node.id,
       type: 'card' as const,
       data: { label: node.label, description: node.description },
-      position: nodePositions[node.id] || { x: 0, y: 0 },
+      // placeholder; dagre will set real positions
+      position: { x: 0, y: 0 },
       style: {
         background: '#fff',
         border: '1px solid #e2e8f0',
@@ -202,7 +201,9 @@ const FlowchartContent = () => {
       };
     });
 
-    return { initialNodes: nodes, initialEdges: edges };
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges, 'TB');
+
+    return { initialNodes: layoutedNodes, initialEdges: layoutedEdges };
   }, []);
 
   const [nodes, , onNodesChange] = useNodesState(initialNodes);

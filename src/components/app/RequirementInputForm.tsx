@@ -1,12 +1,19 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { FileText, Wand2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useState } from "react";
+import { useFormStatus } from "react-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { FileText, Wand2 } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -29,10 +36,12 @@ function SubmitButton() {
 
 export function RequirementInputForm({
   onSubmit,
+  onBack,
 }: {
   onSubmit: (requirements: string) => Promise<void>;
+  onBack?: () => void;
 }) {
-  const [requirements, setRequirements] = useState('');
+  const [requirements, setRequirements] = useState("");
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -45,13 +54,16 @@ export function RequirementInputForm({
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-md">
-                <FileText className="h-6 w-6 text-primary" />
+              <FileText className="h-6 w-6 text-primary" />
             </div>
             <div>
-                <CardTitle className="font-headline">Start with Your Requirements</CardTitle>
-                <CardDescription>
-                Paste your product requirements, specifications, or problem statement below.
-                </CardDescription>
+              <CardTitle className="font-headline">
+                Start with Your Requirements
+              </CardTitle>
+              <CardDescription>
+                Paste your product requirements, specifications, or problem
+                statement below.
+              </CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -60,7 +72,9 @@ export function RequirementInputForm({
             <Wand2 className="h-4 w-4 text-accent-foreground" />
             <AlertTitle>How It Works</AlertTitle>
             <AlertDescription>
-              Our AI will analyze your text to understand the core logic, generate a visual flowchart, and then create a comprehensive set of test cases for you to review.
+              Our AI will analyze your text to understand the core logic,
+              generate a visual flowchart, and then create a comprehensive set
+              of test cases for you to review.
             </AlertDescription>
           </Alert>
           <Textarea
@@ -71,8 +85,15 @@ export function RequirementInputForm({
             required
           />
         </CardContent>
-        <CardFooter className="flex justify-end">
-          <SubmitButton />
+        <CardFooter className="flex justify-between">
+          {onBack && (
+            <Button type="button" variant="outline" onClick={onBack}>
+              Back to Home
+            </Button>
+          )}
+          <div className={onBack ? "" : "ml-auto"}>
+            <SubmitButton />
+          </div>
         </CardFooter>
       </form>
     </Card>

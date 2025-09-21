@@ -8,6 +8,7 @@ export type FlowchartNode = {
 export type FlowchartEdge = {
   source: string;
   target: string;
+  label: string;
 };
 
 export type FlowchartData = {

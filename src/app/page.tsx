@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/app/Header";
 import { RequirementInputForm } from "@/components/app/RequirementInputForm";
 import { UnderstandingView } from "@/components/app/UnderstandingView";
@@ -13,6 +13,9 @@ import {
 import type { FlowchartData, TestCase } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -31,6 +34,7 @@ import Link from "next/link";
 import HealthcareFlowchart, {
   healthcareFlowchartDummyData,
 } from "@/components/flow/HealthcareFlowchart";
+import { useAnalysisWS } from "@/hooks/useAnalysisWS";
 
 type AppState = "home" | "input" | "understanding" | "generating" | "results";
 type UnderstandingData = {
@@ -47,6 +51,46 @@ export default function Home() {
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // WebSocket integration
+  const {
+    connected,
+    progress,
+    results,
+    error: wsError,
+    startAnalysis,
+    question,
+    answerQuestion,
+  } = useAnalysisWS();
+
+  // State for answering backend questions
+  const [answerText, setAnswerText] = useState("");
+  const charLimit = 5000;
+  const overLimit = answerText.length > charLimit;
+  const canSubmitAnswer = answerText.trim().length > 0 && !overLimit;
+  const [questionOpen, setQuestionOpen] = useState(false);
+
+  useEffect(() => {
+    // Reset the answer input when a new question arrives or question clears
+    setAnswerText("");
+    setQuestionOpen(!!question);
+  }, [question]);
+
+  const handleSubmitAnswer = useMemo(() => (
+    () => {
+      if (!canSubmitAnswer) return;
+      try {
+        answerQuestion(answerText.trim());
+        setAnswerText("");
+        // Hide the popup immediately and show loader until results arrive
+        setQuestionOpen(false);
+        setLoadingMessage("Processing your answer...");
+        setAppState("generating");
+      } catch (e) {
+        // No-op; errors will be surfaced via ws error handler
+      }
+    }
+  ), [answerText, answerQuestion, canSubmitAnswer]);
+
   const handleFatalError = (message: string) => {
     toast({
       variant: "destructive",
@@ -58,13 +102,28 @@ export default function Home() {
   };
 
   const handleGenerateUnderstanding = async (requirements: string) => {
+    // Prefer WebSocket for streaming progress/results; fallback to server action
+    if (connected) {
+      setLoadingMessage("Connecting to analysis engine...");
+      setAppState("generating");
+      try {
+        startAnalysis(requirements);
+      } catch (e: any) {
+        // Fallback on failure to send
+        console.warn("WS start failed, falling back to server action", e);
+        await fallbackGenerateUnderstanding(requirements);
+      }
+      return;
+    }
+    await fallbackGenerateUnderstanding(requirements);
+  };
+
+  const fallbackGenerateUnderstanding = async (requirements: string) => {
     setLoadingMessage("Analyzing requirements...");
     setAppState("generating");
     try {
       const result = await generateUnderstandingAction(requirements);
-      if (result.error) {
-        throw new Error(result.error);
-      }
+      if (result.error) throw new Error(result.error);
       setUnderstandingData({
         originalRequirements: requirements,
         summary: result.summary!,
@@ -77,6 +136,67 @@ export default function Home() {
       setLoadingMessage(null);
     }
   };
+
+  // Reflect WS progress/errors into UI and move to understanding when results arrive
+  useEffect(() => {
+    if (wsError) {
+      handleFatalError(wsError);
+    }
+  }, [wsError]);
+
+  useEffect(() => {
+    if (progress) {
+      setLoadingMessage(
+        progress.message || `Stage: ${progress.stage} (${progress.progress}%)`
+      );
+    }
+  }, [progress]);
+
+  useEffect(() => {
+    if (!results) return;
+    try {
+      const summary = Array.isArray(results.insights)
+        ? (results.insights[0] as string)
+        : "";
+
+      // Prefer flowChart at top-level if provided by server
+      let flowchartDataStr: string | null =
+        typeof results.flowChart === "string" ? results.flowChart : null;
+
+      // Fallback: try to locate a JSON blob from conversationHistory content
+      if (!flowchartDataStr && Array.isArray(results.conversationHistory)) {
+        const candidate = [...results.conversationHistory]
+          .reverse()
+          .find(
+            (e: any) =>
+              typeof e?.content === "string" && /\{[\s\S]*\}/.test(e.content)
+          );
+        if (candidate?.content) {
+          flowchartDataStr = candidate.content as string;
+        }
+      }
+
+      if (!flowchartDataStr || typeof flowchartDataStr !== "string") {
+        throw new Error("Flowchart data missing from results");
+      }
+
+      // Clean and parse JSON
+      const cleaned = flowchartDataStr
+        .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
+        .trim();
+      const parsedFlowchartData: FlowchartData = JSON.parse(cleaned);
+
+      setUnderstandingData((prev) => ({
+        originalRequirements: prev?.originalRequirements || summary,
+        summary,
+        flowchartData: parsedFlowchartData,
+      }));
+      setAppState("understanding");
+      setLoadingMessage(null);
+    } catch (e: any) {
+      handleFatalError(e.message || "Failed to parse results from WebSocket.");
+    }
+  }, [results]);
 
   const handleGenerateTests = async (summary: string) => {
     if (!understandingData?.originalRequirements) {
@@ -276,6 +396,38 @@ export default function Home() {
           {renderContent()}
         </div>
       </main>
+      {/* Modal for answering backend questions (USER_INPUT) */}
+      <Dialog open={questionOpen} onOpenChange={(open) => setQuestionOpen(open)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Additional Information Requested</DialogTitle>
+            <DialogDescription>
+              {question || "The analysis engine is requesting more details."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 py-2">
+            <Label htmlFor="ws-answer">Your Answer</Label>
+            <Textarea
+              id="ws-answer"
+              value={answerText}
+              maxLength={charLimit}
+              onChange={(e) => setAnswerText(e.target.value)}
+              placeholder="Type your response here (max 5000 characters)"
+              className={overLimit ? "border-destructive" : ""}
+              rows={6}
+            />
+            <div className={`text-sm text-right ${overLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {answerText.length}/{charLimit}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setAnswerText("")}>Clear</Button>
+            <Button onClick={handleSubmitAnswer} disabled={!canSubmitAnswer}>
+              Submit Answer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <footer className="border-t bg-card/50 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="text-center text-sm text-muted-foreground">

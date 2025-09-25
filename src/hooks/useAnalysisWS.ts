@@ -17,12 +17,23 @@ export function useAnalysisWS() {
   const [results, setResults] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [question, setQuestion] = useState<string | null>(null);
+  // Queue a requirement if startAnalysis is called before session is ready
+  const pendingRequirementRef = useRef<string | null>(null);
 
   useEffect(() => {
     const client = createAnalysisWSClient({
       onOpen: () => setConnected(true),
       onConnectAck: (payload) => {
-        setSessionId(payload?.sessionId);
+        const id = payload?.sessionId;
+        setSessionId(id);
+        // If a start was requested before we had a session, send it now
+        if (id && pendingRequirementRef.current) {
+          try {
+            client.startAnalysis(pendingRequirementRef.current);
+          } finally {
+            pendingRequirementRef.current = null;
+          }
+        }
       },
       onProgress: (payload) => {
         setProgress(payload);
@@ -49,13 +60,25 @@ export function useAnalysisWS() {
 
   const api = useMemo(
     () => ({
-      startAnalysis: (requirement: string) =>
-        clientRef.current?.startAnalysis(requirement),
+      startAnalysis: (requirement: string) => {
+        // Clear previous run state
+        setProgress(null);
+        setResults(null);
+        setError(null);
+        // If we have an active client but it's not ready yet, queue the request
+        const client = clientRef.current;
+        const ready = !!client && (client as any)["ws"] && (client as any)["ws"].readyState === WebSocket.OPEN && !!sessionId;
+        if (client && ready) {
+          client.startAnalysis(requirement);
+        } else if (client) {
+          pendingRequirementRef.current = requirement;
+        }
+      },
       answerQuestion: (response: string) =>
         clientRef.current?.answerQuestion(response),
       disconnect: (reason?: string) => clientRef.current?.disconnect(reason),
     }),
-    []
+    [sessionId]
   );
 
   return {

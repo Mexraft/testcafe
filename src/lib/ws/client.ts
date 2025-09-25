@@ -16,6 +16,7 @@ export class AnalysisWSClient {
   private sessionId: string | null = null;
   private reconnectAttempts = 0;
   private handlers: WSHandlers = {};
+  private closedByUser = false;
 
   constructor(private url: string = WS_URL) {}
 
@@ -24,6 +25,8 @@ export class AnalysisWSClient {
   connect() {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
     this.ws = new WebSocket(this.url);
+    // A (re)connect attempt implies future reconnects are allowed
+    this.closedByUser = false;
 
     this.ws.onopen = () => {
       const msg: WebSocketMessage = {
@@ -76,7 +79,9 @@ export class AnalysisWSClient {
 
     this.ws.onclose = (ev) => {
       this.handlers.onClose?.(ev);
-      this.scheduleReconnect();
+      if (!this.closedByUser) {
+        this.scheduleReconnect();
+      }
     };
 
     this.ws.onerror = (ev: Event) => {
@@ -86,6 +91,7 @@ export class AnalysisWSClient {
 
   private scheduleReconnect() {
     const max = WS_MAX_RECONNECT_ATTEMPTS;
+    if (this.closedByUser) return;
     if (this.reconnectAttempts >= max) return;
     const base = 1000 * Math.pow(2, this.reconnectAttempts);
     const jitter = base * 0.1 * (Math.random() * 2 - 1);
@@ -118,6 +124,8 @@ export class AnalysisWSClient {
 
   disconnect(reason?: string) {
     if (!this.ws) return;
+    // Prevent auto-reconnect after an intentional disconnect (e.g., unmount)
+    this.closedByUser = true;
     const msg: WebSocketMessage<{ reason?: string }> = {
       type: MessageType.DISCONNECT,
       timestamp: Date.now(),

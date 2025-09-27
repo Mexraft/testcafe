@@ -11,6 +11,7 @@ import ReactFlow, {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -191,29 +192,31 @@ export function FlowchartEditor() {
   ];
 
   return (
-    <div className="flex h-[600px] w-full">
-      {/* Sidebar with draggable cards */}
-      <div className="w-64 p-4 space-y-4 border-r">
-        <h3 className="text-lg font-semibold">Components</h3>
-        <div className="space-y-2">
-          {cardTemplates.map((card) => (
-            <DraggableCard key={card.id} title={card.title} description={card.description} />
-          ))}
+    <ReactFlowProvider>
+      <div className="flex h-[600px] w-full">
+        {/* Sidebar with draggable cards */}
+        <div className="w-64 p-4 space-y-4 border-r">
+          <h3 className="text-lg font-semibold">Components</h3>
+          <div className="space-y-2">
+            {cardTemplates.map((card) => (
+              <DraggableCard key={card.id} title={card.title} description={card.description} />
+            ))}
+          </div>
+          <Button className="w-full" variant="outline">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Step
+          </Button>
         </div>
-        <Button className="w-full" variant="outline">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Step
-        </Button>
-      </div>
 
-      {/* Main canvas area */}
-      <div className="flex-1">
-        <FlowchartCanvas
-          initialCards={cards}
-          onNodesChange={(nodes) => setCards(nodes.map((node) => node.data))}
-          onEdgesChange={setEdges}
-        />
+        {/* Main canvas area */}
+        <div className="flex-1">
+          <FlowchartCanvas
+            initialCards={cards}
+            onNodesChange={(nodes) => setCards(nodes.map((node) => node.data))}
+            onEdgesChange={setEdges}
+          />
+        </div>
       </div>
-    </div>
+    </ReactFlowProvider>
   );
 }

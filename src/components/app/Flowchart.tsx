@@ -1,11 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useLayoutEffect } from 'react';
-import type { FlowchartData, FlowchartNode } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import type { FlowchartData, FlowchartNode } from "@/lib/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type NodeWithPosition = FlowchartNode & {
   x: number;
@@ -26,7 +25,10 @@ const HORIZONTAL_GAP = 60;
 const VERTICAL_GAP = 40;
 
 export function Flowchart({ data }: { data: FlowchartData }) {
-  const [layout, setLayout] = useState<{ nodes: NodeWithPosition[]; edges: EdgeWithPoints[] } | null>(null);
+  const [layout, setLayout] = useState<{
+    nodes: NodeWithPosition[];
+    edges: EdgeWithPoints[];
+  } | null>(null);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -46,10 +48,10 @@ export function Flowchart({ data }: { data: FlowchartData }) {
       };
     });
 
-    const nodeMap = new Map(positionedNodes.map(n => [n.id, n]));
+    const nodeMap = new Map(positionedNodes.map((n) => [n.id, n]));
 
-    const calculatedEdges = data.edges
-      .map(edge => {
+    const calculatedEdges: EdgeWithPoints[] = data.edges
+      .map((edge) => {
         const sourceNode = nodeMap.get(edge.source);
         const targetNode = nodeMap.get(edge.target);
 
@@ -60,7 +62,7 @@ export function Flowchart({ data }: { data: FlowchartData }) {
         const x2 = targetNode.x;
         const y2 = targetNode.y + targetNode.height / 2;
 
-        return { ...edge, points: { x1, y1, x2, y2 } };
+        return { ...edge, points: { x1, y1, x2, y2 } } as EdgeWithPoints;
       })
       .filter((e): e is EdgeWithPoints => e !== null);
 
@@ -68,19 +70,28 @@ export function Flowchart({ data }: { data: FlowchartData }) {
   }, [data, isMobile]);
 
   if (!layout) {
-    return <div className="flex items-center justify-center h-64 text-muted-foreground">Generating flowchart...</div>;
+    return (
+      <div className="flex items-center justify-center h-64 text-muted-foreground">
+        Generating flowchart...
+      </div>
+    );
   }
 
   const containerWidth = isMobile
     ? NODE_WIDTH
     : 2 * NODE_WIDTH + HORIZONTAL_GAP;
-  const containerHeight = Math.ceil(layout.nodes.length / (isMobile ? 1 : 2)) * (NODE_HEIGHT + VERTICAL_GAP) - VERTICAL_GAP;
-
+  const containerHeight =
+    Math.ceil(layout.nodes.length / (isMobile ? 1 : 2)) *
+      (NODE_HEIGHT + VERTICAL_GAP) -
+    VERTICAL_GAP;
 
   return (
     <ScrollArea className="w-full h-[400px] border rounded-lg bg-background p-4">
-      <div className="relative" style={{ width: containerWidth, height: containerHeight }}>
-        {layout.nodes.map(node => (
+      <div
+        className="relative"
+        style={{ width: containerWidth, height: containerHeight }}
+      >
+        {layout.nodes.map((node) => (
           <Card
             key={node.id}
             className="absolute shadow-md hover:shadow-xl transition-shadow duration-300"
@@ -92,15 +103,23 @@ export function Flowchart({ data }: { data: FlowchartData }) {
             }}
           >
             <CardHeader className="p-3">
-              <CardTitle className="text-sm font-bold truncate">{node.label}</CardTitle>
+              <CardTitle className="text-sm font-bold truncate">
+                {node.label}
+              </CardTitle>
             </CardHeader>
             <CardContent className="p-3 pt-0">
-              <p className="text-xs text-muted-foreground line-clamp-3">{node.description}</p>
+              <p className="text-xs text-muted-foreground line-clamp-3">
+                {node.description}
+              </p>
             </CardContent>
           </Card>
         ))}
 
-        <svg className="absolute inset-0 pointer-events-none" width={containerWidth} height={containerHeight}>
+        <svg
+          className="absolute inset-0 pointer-events-none"
+          width={containerWidth}
+          height={containerHeight}
+        >
           <defs>
             <marker
               id="arrowhead"
@@ -114,14 +133,18 @@ export function Flowchart({ data }: { data: FlowchartData }) {
             </marker>
           </defs>
           {layout.edges.map((edge, i) => (
-             <path
-             key={`${edge.source}-${edge.target}-${i}`}
-             d={`M ${edge.points.x1} ${edge.points.y1} C ${edge.points.x1 + HORIZONTAL_GAP / 2} ${edge.points.y1}, ${edge.points.x2 - HORIZONTAL_GAP / 2} ${edge.points.y2}, ${edge.points.x2} ${edge.points.y2}`}
-             stroke="hsl(var(--primary))"
-             strokeWidth="2"
-             fill="none"
-             markerEnd="url(#arrowhead)"
-           />
+            <path
+              key={`${edge.source}-${edge.target}-${i}`}
+              d={`M ${edge.points.x1} ${edge.points.y1} C ${
+                edge.points.x1 + HORIZONTAL_GAP / 2
+              } ${edge.points.y1}, ${edge.points.x2 - HORIZONTAL_GAP / 2} ${
+                edge.points.y2
+              }, ${edge.points.x2} ${edge.points.y2}`}
+              stroke="hsl(var(--primary))"
+              strokeWidth="2"
+              fill="none"
+              markerEnd="url(#arrowhead)"
+            />
           ))}
         </svg>
       </div>
